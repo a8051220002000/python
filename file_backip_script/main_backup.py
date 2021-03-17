@@ -1,55 +1,67 @@
+#!/usr/bin/python3
+# -*- coding: UTF-8 -*-
 import os
+import shutil
 import time
-from sys import platform
-
+import datetime
+import pathlib
+import sys
 import config
 from logger import Logger
 
-date = time.strftime("%d-%m-%Y_%H-%M")
+today = str(datetime.date.today())
 logger = Logger("backup.log")
 
-def os_check():
-    if platform == "linux" or platform == "linux2":
-        return True
-    else:
-        return False
 
 
-'''
-def file_backup():
-    logger.log("INFO", "Starting backup for ...")
-    tmpCheck = os.system("cd "+config.cloud_mount)
-    if tmpCheck == 0:
-        createBackup = os.system("cd " + config.cloud_mount + " && "
-                                 "mysqldump -u " + config.mysql_user + " -p'" + config.mysql_password + "' --all-databases > mysqlbackup-" + date + ".sql")
-
+def pre_backup():
+    logger.log("INFO", "Starting Pre_backup...")
+    dirCheck = os.system("cd " + config.cloud_mount)
+    if dirCheck != 0:
+        createBackup = pathlib.Path(config.cloud_mount).mkdir(parents=True, exist_ok=True)
         if createBackup == 0:
-            logger.log("SUCCESS", "MySQL database backup successfully created")
+            os.system("cd " + config.cloud_mount + " && mkdir " + str(today) )
+            logger.log("SUCCESS", " Pre_backup successfully created dir")
         else:
-            logger.log("ERROR", "MySQL database backup failed")
-            os.system("cd " + config.cloud_mount + " && rm mysqlbackup-" + date + ".sql")
+            logger.log("ERROR", " Pre_backup failed created dir")
+            sys.exit(1)
     else:
-        logger.log("ERROR", "Mount not exits")
-'''
+        os.system("cd " + config.cloud_mount + " && mkdir " + str(today) )
+        logger.log("SUCCESS", " Pre_backup successfully created directory")
+
 
 def backup():
-    logger.log("INFO", "Starting backup for "+str(len(config.backup_dirs))+" directories...")
-    if len(config.backup_dirs) == 0:
-        logger.log("INFO", "No directories to backup")
+    logger.log("INFO", "Starting backup to " + str(config.cloud_mount + '/' + today) + " directories...")
+    if os.path.isdir(str(config.cloud_mount + '/' + today )):
+        for var in config.backup_list:
+            try:
+                if os.path.isfile(var):#如果是檔案
+                    logger.log("INFO", "Starting backup file " + var)
+                    status = os.system("cd " + config.cloud_mount + '/' + today + " && rsync -avhR " + var + ' .')
+                    if status == 0:
+                        logger.log("SUCCESS", "Backup file "+ var +" successfully")
+                    else:
+                        logger.log("ERROR", "Failed to backup "+ var)
+                elif os.path.isdir(var): #如果是資料夾
+                    logger.log("INFO", "Starting backup dir " + var)
+                    status = os.system("cd " + config.cloud_mount + '/' + today + " && rsync -avhR " + var + ' .')
+                    if status == 0:
+                        logger.log("SUCCESS", "Backup dir "+ var +" successfully")
+                    else:
+                        logger.log("ERROR", "Failed to backup "+ var)
+                else:
+                        logger.log("ERROR", var + " not exist this dir or file backup failed.Please check it!")
+            except:
+                logger.log("ERROR", "An exception occurred")
+                sys.exit(1)
     else:
-        counter = 0
-        for dir in config.backup_dirs:
-            counter += 1
-            logger.log("INFO", "Starting backup for "+dir+"...")
-            status = os.system("cd " + config.cloud_mount + " && tar -czvf backup_" + str(counter) + "-" + date + ".tar.gz "+dir)
-            if status == 0:
-                logger.log("SUCCESS", "Backup for "+dir+" successfully")
-            else:
-                logger.log("ERROR", "Failed to backup "+dir)
+        logger.log("ERROR", "No directories to backup")
+        sys.exit(1)
 
 
-def clearBackups():
-    logger.log("INFO", "Cleaning backup dir...")
+
+def rsyncBackups():
+    logger.log("INFO", "Starting rsync to remote backup dir...")
     for file in os.listdir(config.cloud_mount):
         if os.path.isfile(file):
             os.remove(file)
@@ -57,19 +69,21 @@ def clearBackups():
             os.rmdir(file)
         else:
             logger.log("ERROR", file + " can't be deleted!")
-    logger.log("SUCCESS", "Successfully deleted old backup files")
+    logger.log("SUCCESS", " Successfully deleted old backup files")
 
-if os_check():
-    if os.path.exists(config.cloud_mount):
-        if config.clear_backups:
-            clearBackups()
-        if config.mysql_backup:
-            mysql_backup()
-        backup()
-    else:
-        logger.log("ERROR", "Failed to create backup")
-        logger.log("ERROR", config.cloud_mount + " not exists")
-    logger.closeFile()
+
+
+if os.path.exists(config.cloud_mount + '/' + today):
+    shutil.rmtree(config.cloud_mount + '/' + today)
+    pre_backup()
+    backup()
+    #rsyncBackups()
+elif os.path.exists(config.cloud_mount):
+    pre_backup()
+    backup()
+    #rsyncBackups()
 else:
-    logger.log("ERROR", "Sorry but this script is only for Linux")
+    logger.log("ERROR", "This backup nothing to do please check backup directory")
     logger.closeFile()
+    sys.exit(1)
+logger.closeFile()

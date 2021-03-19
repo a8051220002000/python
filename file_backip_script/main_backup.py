@@ -91,17 +91,14 @@ def backup():
         sys.exit(1)
 
 
-def rsyncBackups():
+def rsyncBackup():
     logger.log("INFO", "Starting sync to remote dir...")
     try:
-        #sendCheck = subprocess.call(["rsync", "-avh", str(local_backup_dir) + ' ' + config.cloud_user + '@' + config.cloud_ip + ':' + config.cloud_mount + '/' + str(get_ip_address(config.local_interface)) + '/'])
-        subprocess.call(["rsync", "-avh", str(local_backup_dir) + ' ' + config.cloud_user + '@' + config.cloud_ip + ':' + config.cloud_mount + '/' + str(get_ip_address(config.local_interface)) + '/'])
-    except OSError as e:
-        print(e.output)
-        logger.log("ERROR", "rsync to remote task An exception occurred")
-        sys.exit(1)
-    else:
-        logger.log("SUCCESS", "Successfully rsync to remote dir")
+        #res = subprocess.call(["rsync", "-avh", str(local_backup_dir) + ' ' + config.cloud_user + '@' + config.cloud_ip + ':' + config.cloud_mount + '/' + str(get_ip_address(config.local_interface)) + '/'])
+        res = subprocess.check_call(["rsync", "-avh", str(local_backup_dir) + ' ' + config.cloud_user + '@' + config.cloud_ip + ':' + config.cloud_mount + '/' + str(get_ip_address(config.local_interface)) + '/'])
+    except subprocess.CalledProcessError, exc:
+        logger.log("ERROR", "An exception Error" + " \n" + ' returncode:' + str(exc.returncode) + " \n" +  ' cmd:' + str(exc.cmd) + " \n" + ' output:' + str(exc.output))
+
 
 
 init_check = (config.local_mount + '/' + str(get_ip_address(config.local_interface)) + '/' + today)
@@ -111,10 +108,10 @@ if os.path.exists(init_check):
     shutil.rmtree(config.local_mount + '/' + str(get_ip_address(config.local_interface)) + '/' + today)
     pre_backup()
     backup()
-    rsyncBackups()
+    rsyncBackup()
 else:
     pre_backup()
     backup()
-    rsyncBackups()
+    rsyncBackup()
 #except:
 #    logger.log("ERROR", "init_check An exception occurred")

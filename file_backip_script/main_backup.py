@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python2
 # -*- coding: UTF-8 -*-
 import os
 import shutil
@@ -15,7 +15,7 @@ import struct
 from logger import Logger
 
 today = str(datetime.date.today())
-logger = Logger("backup.log")
+logger = Logger(config.log_dir + '/' + config.log_file )
 
 
 def get_ip_address(ifname):
@@ -39,25 +39,23 @@ def pre_backup():
     logger.log("INFO", "Pre_backup task1 checking log dir")
 
     logDir = os.system("cd " + config.log_dir)
-    try:
-        if logDir != 0:
+    if logDir != 0:
+        try:
             creat_dir(config.log_dir)
-    except:
-        logger.log("ERROR", "Pre_backup task1 An exception occurred")
-        sys.exit(1)
-    else:
-        logger.log("SUCCESS", "Pre_backup task1 log dir is exist")
+        except:
+            logger.log("ERROR", "Pre_backup task1 An exception occurred")
+            sys.exit(1)
 
     logger.log("INFO", "Pre_backup task2 checking daily dir")
     dirCheck = os.system("cd " + config.local_mount + '/' + str(get_ip_address(config.local_interface)) )
-    try:
-        if dirCheck != 0:
+    if dirCheck != 0:
+        try:
             creat_dir(config.local_mount + '/' + str(get_ip_address(config.local_interface)) + '/' + str(today) + '/') #最後要留/才會跟著建立dir
-            logger.log("SUCCESS", "Pre_backup task2 successfully")
-    except:
-        logger.log("ERROR", "Pre_backup task2 An exception occurred")
-        sys.exit(1)
-    else:
+            logger.log("SUCCESS", "Pre_backup task2 creat daily dir successfully")
+        except:
+            logger.log("ERROR", "Pre_backup task2 An exception occurred")
+            sys.exit(1)
+    elif dirCheck == 0:
         creat_dir(config.local_mount + '/' + str(get_ip_address(config.local_interface)) + '/' + str(today) + '/')
         logger.log("SUCCESS", "Pre_backup task2 creat daily dir successfully")
 
@@ -82,7 +80,7 @@ def backup():
                     else:
                         logger.log("ERROR", "Failed to backup "+ var)
                 else:
-                        logger.log("ERROR", var + " not exist .Please check config.py file")
+                        logger.log("ERROR", var + " not exist. Please check config.py file")
             except:
                 logger.log("ERROR", "An exception occurred")
                 sys.exit(1)
@@ -94,16 +92,15 @@ def backup():
 def rsyncBackup():
     logger.log("INFO", "Starting sync to remote dir...")
     try:
-        #res = subprocess.call(["rsync", "-avh", str(local_backup_dir) + ' ' + config.cloud_user + '@' + config.cloud_ip + ':' + config.cloud_mount + '/' + str(get_ip_address(config.local_interface)) + '/'])
-        res = subprocess.check_call(["rsync", "-avh", str(local_backup_dir) + ' ' + config.cloud_user + '@' + config.cloud_ip + ':' + config.cloud_mount + '/' + str(get_ip_address(config.local_interface)) + '/'])
+        res = subprocess.check_call(["rsync", "-avh", str(local_backup_dir), config.cloud_user + '@' + config.cloud_ip + ':' + config.cloud_mount + '/' + str(get_ip_address(config.local_interface)) + '/'])
     except subprocess.CalledProcessError, exc:
-        logger.log("ERROR", "An exception Error" + " \n" + ' returncode:' + str(exc.returncode) + " \n" +  ' cmd:' + str(exc.cmd) + " \n" + ' output:' + str(exc.output))
+        logger.log("ERROR", "An rsync exception Error" + " \n" + ' returncode:' + str(exc.returncode) + " \n" +  ' cmd:' + str(exc.cmd) + " \n" + ' output:' + str(exc.output))
 
 
 
 init_check = (config.local_mount + '/' + str(get_ip_address(config.local_interface)) + '/' + today)
 local_backup_dir = str(config.local_mount + '/' + str(get_ip_address(config.local_interface)) + '/' + today)
-#try:
+
 if os.path.exists(init_check):
     shutil.rmtree(config.local_mount + '/' + str(get_ip_address(config.local_interface)) + '/' + today)
     pre_backup()
@@ -113,5 +110,4 @@ else:
     pre_backup()
     backup()
     rsyncBackup()
-#except:
-#    logger.log("ERROR", "init_check An exception occurred")
+

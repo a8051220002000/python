@@ -2,6 +2,7 @@ from datetime import datetime
 
 class Logger:
 
+    #file = None
     file = None
 
     def __init__(self, fileName):
